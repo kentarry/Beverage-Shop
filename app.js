@@ -35,6 +35,12 @@ function initNavigation() {
         document.getElementById('sidebar').classList.toggle('open');
     });
     document.getElementById('exportBtn')?.addEventListener('click', exportReport);
+    document.getElementById('resetBtn')?.addEventListener('click', () => {
+        if (confirm('確定要重置所有設定為預設值嗎？\n所有已儲存的資料將會被清除。')) {
+            localStorage.removeItem(SAVE_KEY);
+            location.reload();
+        }
+    });
 }
 
 // ========== Bind All Inputs ==========
@@ -215,6 +221,10 @@ function initFranchise() {
             selectedFranchise = fr;
             document.getElementById('customFranchiseFee').value = fr.feeNum;
             document.getElementById('customFranchiseDeposit').value = fr.depositNum;
+            // 帶入權利金：如果是營收百分比，用預估月營收計算
+            const estMonthlyRev = v('avgPrice') * v('dailyCups') * v('monthlyDays');
+            document.getElementById('customRoyalty').value = fr.royaltyPct > 0 ? Math.round(estMonthlyRev * fr.royaltyPct / 100) : 0;
+            document.getElementById('customAdFund').value = fr.adPct > 0 ? Math.round(estMonthlyRev * fr.adPct / 100) : 0;
             recalcAll();
         });
         grid.appendChild(card);
@@ -245,7 +255,12 @@ function initChecklist() {
 
 // ========== Helpers ==========
 function v(id) { return parseFloat(document.getElementById(id)?.value) || 0; }
-function fmt(n) { return '$' + Math.round(n).toLocaleString(); }
+function fmt(n) {
+    const abs = Math.abs(n);
+    if (abs > 0 && abs < 100) return '$' + n.toFixed(1);
+    return '$' + Math.round(n).toLocaleString();
+}
+function fmtInt(n) { return '$' + Math.round(n).toLocaleString(); }
 
 // ========== Main Recalculation ==========
 function recalcAll() {
@@ -256,17 +271,23 @@ function recalcAll() {
     const baseSalary = managerCost + ftCost + ptCost;
     const insuranceAdd = baseSalary * (v('insuranceRate') / 100);
     const totalStaff = baseSalary + insuranceAdd + v('monthlyBonus');
-    document.getElementById('totalStaffCost').textContent = fmt(totalStaff);
+    document.getElementById('totalStaffCost').textContent = fmtInt(totalStaff);
 
     // Rent & Renovation
     const monthlyRentTotal = v('monthlyRent') + v('mgmtFee');
     const depositCost = v('monthlyRent') * v('depositMonths');
     const renovationCost = v('interiorCost') + v('signCost') + v('plumbingCost') + v('acCost');
-    document.getElementById('totalRenovation').textContent = fmt(renovationCost);
+    document.getElementById('totalRenovation').textContent = fmtInt(renovationCost);
 
-    // Material per cup
-    const perCup = v('matTea') + v('matSugar') + v('matMilk') + v('matTopping') + v('matCup') + v('matBag');
-    document.getElementById('perCupCost').textContent = fmt(perCup);
+    // Material per cup (raw cost)
+    const perCupRaw = v('matTea') + v('matSugar') + v('matMilk') + v('matTopping') + v('matCup') + v('matBag');
+    document.getElementById('perCupCost').textContent = fmt(perCupRaw);
+
+    // Material per cup (with wastage)
+    const wastageRate = v('wastageRate') / 100;
+    const perCup = perCupRaw * (1 + wastageRate);
+    const perCupCostRealEl = document.getElementById('perCupCostReal');
+    if (perCupCostRealEl) perCupCostRealEl.textContent = fmt(perCup);
 
     // Revenue
     const avgPrice = v('avgPrice');
@@ -278,9 +299,9 @@ function recalcAll() {
     const grossMargin = monthlyRev > 0 ? (grossProfit / monthlyRev * 100) : 0;
 
     document.getElementById('grossMargin').textContent = grossMargin.toFixed(1) + '%';
-    document.getElementById('monthlyRevenue').textContent = fmt(monthlyRev);
-    document.getElementById('monthlyMatCost').textContent = fmt(monthlyMatCost);
-    document.getElementById('monthlyGross').textContent = fmt(grossProfit);
+    document.getElementById('monthlyRevenue').textContent = fmtInt(monthlyRev);
+    document.getElementById('monthlyMatCost').textContent = fmtInt(monthlyMatCost);
+    document.getElementById('monthlyGross').textContent = fmtInt(grossProfit);
 
     // Franchise costs
     const franchiseFee = v('customFranchiseFee');
@@ -288,79 +309,108 @@ function recalcAll() {
     const royaltyMonthly = v('customRoyalty');
     const adFundMonthly = v('customAdFund');
 
+    // Delivery platform commission
+    const deliveryPct = v('deliveryPct') / 100;
+    const deliveryCommission = v('deliveryCommission') / 100;
+    const deliveryFee = monthlyRev * deliveryPct * deliveryCommission;
+    const deliveryFeeEl = document.getElementById('deliveryFee');
+    if (deliveryFeeEl) deliveryFeeEl.textContent = fmtInt(deliveryFee);
+
+    // Sales tax
+    const salesTaxRate = v('salesTaxRate') / 100;
+    const salesTax = monthlyRev > 200000 ? monthlyRev * salesTaxRate : 0;
+    const salesTaxEl = document.getElementById('salesTaxAmount');
+    if (salesTaxEl) salesTaxEl.textContent = fmtInt(salesTax);
+
     // Other monthly
     const otherMonthly = v('waterBill') + v('electricBill') + v('gasBill') + v('phoneBill') + v('posFee') + v('marketingFee') + v('taxFee') + v('miscFee');
 
-    // Total monthly cost
-    const totalMonthlyCost = monthlyMatCost + totalStaff + monthlyRentTotal + otherMonthly + royaltyMonthly + adFundMonthly;
+    // Total monthly cost (now includes delivery commission and sales tax)
+    const totalMonthlyCost = monthlyMatCost + totalStaff + monthlyRentTotal + otherMonthly + royaltyMonthly + adFundMonthly + deliveryFee + salesTax;
     const monthlyNetProfit = monthlyRev - totalMonthlyCost;
 
     // Equipment
     const equipmentTotal = getEquipmentTotal();
 
+    // Startup misc costs
+    const startupMisc = v('startupMisc');
+
     // Total initial investment
-    const totalInvest = depositCost + renovationCost + equipmentTotal + franchiseFee + franchiseDeposit;
+    const totalInvest = depositCost + renovationCost + equipmentTotal + franchiseFee + franchiseDeposit + startupMisc;
+
+    // Working capital / reserve
+    const reserveMonths = v('reserveMonths');
+    const reserveAmount = totalMonthlyCost * reserveMonths;
+    const reserveAmountEl = document.getElementById('reserveAmount');
+    if (reserveAmountEl) reserveAmountEl.textContent = fmtInt(reserveAmount);
+    const realTotalNeeded = totalInvest + reserveAmount;
+    const realTotalEl = document.getElementById('realTotalNeeded');
+    if (realTotalEl) realTotalEl.textContent = fmtInt(realTotalNeeded);
 
     // Payback
     const paybackMonths = monthlyNetProfit > 0 ? Math.ceil(totalInvest / monthlyNetProfit) : Infinity;
 
     // Update KPI
-    document.getElementById('kpiTotalInvest').textContent = fmt(totalInvest);
-    document.getElementById('kpiMonthlyRev').textContent = fmt(monthlyRev);
-    document.getElementById('kpiMonthlyProfit').textContent = fmt(monthlyNetProfit);
+    document.getElementById('kpiTotalInvest').textContent = fmtInt(totalInvest);
+    document.getElementById('kpiMonthlyRev').textContent = fmtInt(monthlyRev);
+    document.getElementById('kpiMonthlyProfit').textContent = fmtInt(monthlyNetProfit);
     document.getElementById('kpiMonthlyProfit').style.color = monthlyNetProfit >= 0 ? 'var(--green)' : 'var(--red)';
     document.getElementById('kpiPayback').textContent = paybackMonths === Infinity ? '∞ 月' : paybackMonths + ' 月';
 
     // Breakeven
-    document.getElementById('beTotalInvest').textContent = fmt(totalInvest);
-    document.getElementById('beMonthlyNet').textContent = fmt(monthlyNetProfit);
+    document.getElementById('beTotalInvest').textContent = fmtInt(totalInvest);
+    document.getElementById('beMonthlyNet').textContent = fmtInt(monthlyNetProfit);
     document.getElementById('beMonthlyNet').style.color = monthlyNetProfit >= 0 ? '' : 'var(--red)';
     document.getElementById('bePaybackMonths').textContent = paybackMonths === Infinity ? '無法回本' : paybackMonths + ' 月';
 
-    // Breakeven cups per day
-    const fixedMonthly = totalStaff + monthlyRentTotal + otherMonthly + royaltyMonthly + adFundMonthly + v('matCleaning') + v('matOther');
+    // Breakeven cups per day (with wastage-adjusted cost)
+    const fixedMonthly = totalStaff + monthlyRentTotal + otherMonthly + royaltyMonthly + adFundMonthly + deliveryFee + salesTax + v('matCleaning') + v('matOther');
     const profitPerCup = avgPrice - perCup;
     const breakevenCupsDay = profitPerCup > 0 ? Math.ceil(fixedMonthly / profitPerCup / monthlyDays) : Infinity;
     document.getElementById('beBreakevenCups').textContent = breakevenCupsDay === Infinity ? '-- 杯' : breakevenCupsDay + ' 杯/日';
 
-    // P&L Table
-    renderPNL(monthlyRev, monthlyMatCost, totalStaff, monthlyRentTotal, otherMonthly, royaltyMonthly, adFundMonthly, monthlyNetProfit);
+    // P&L Table (updated with new cost items)
+    renderPNL(monthlyRev, monthlyMatCost, totalStaff, monthlyRentTotal, otherMonthly, royaltyMonthly, adFundMonthly, deliveryFee, salesTax, monthlyNetProfit);
 
     // Summary
-    renderSummary(totalInvest, monthlyRev, totalMonthlyCost, monthlyNetProfit, grossMargin, paybackMonths, breakevenCupsDay, dailyCups);
+    renderSummary(totalInvest, monthlyRev, totalMonthlyCost, monthlyNetProfit, grossMargin, paybackMonths, breakevenCupsDay, dailyCups, realTotalNeeded, reserveAmount);
 
-    // Scenarios
-    renderScenarios(totalInvest, avgPrice, perCup, fixedMonthly, monthlyDays);
+    // Scenarios (pass wastage-adjusted perCup and include delivery+tax in fixed)
+    renderScenarios(totalInvest, avgPrice, perCup, fixedMonthly, monthlyDays, deliveryPct, deliveryCommission, salesTaxRate);
 
-    // Charts
-    renderCharts(monthlyMatCost, totalStaff, monthlyRentTotal, otherMonthly, royaltyMonthly + adFundMonthly, depositCost, renovationCost, equipmentTotal, franchiseFee + franchiseDeposit, totalInvest, monthlyNetProfit);
+    // Charts (seasonal cashflow)
+    renderCharts(monthlyMatCost, totalStaff, monthlyRentTotal, otherMonthly, royaltyMonthly + adFundMonthly, deliveryFee, salesTax, depositCost, renovationCost, equipmentTotal, franchiseFee + franchiseDeposit + startupMisc, totalInvest, monthlyNetProfit, monthlyRev, dailyCups, avgPrice, perCup, monthlyDays);
 }
 
 // ========== Render P&L ==========
-function renderPNL(rev, mat, staff, rent, other, royalty, ad, net) {
+function renderPNL(rev, mat, staff, rent, other, royalty, ad, delivery, salesTax, net) {
     const el = document.getElementById('pnlTable');
     const rows = [
         { label: '營業收入', val: rev, cls: 'pnl-header' },
-        { label: '　原物料成本', val: -mat },
+        { label: '　原物料成本（含損耗）', val: -mat },
         { label: '營業毛利', val: rev - mat, cls: 'pnl-total' },
         { label: '　人事費用', val: -staff },
         { label: '　店租+管理費', val: -rent },
         { label: '　水電瓦斯', val: -(v('waterBill') + v('electricBill') + v('gasBill')) },
         { label: '　行銷/POS/雜支', val: -(v('phoneBill') + v('posFee') + v('marketingFee') + v('taxFee') + v('miscFee')) },
         { label: '　權利金+廣告基金', val: -(royalty + ad) },
+        { label: '　🛵 外送平台抽成', val: -delivery },
+        { label: '　📋 營業稅', val: -salesTax },
         { label: '每月淨利', val: net, cls: net >= 0 ? 'pnl-total' : 'pnl-total pnl-negative' },
     ];
-    el.innerHTML = rows.map(r => `<div class="pnl-row ${r.cls || ''}"><span class="pnl-label">${r.label}</span><span class="pnl-val">${fmt(r.val)}</span></div>`).join('');
+    el.innerHTML = rows.map(r => `<div class="pnl-row ${r.cls || ''}"><span class="pnl-label">${r.label}</span><span class="pnl-val">${fmtInt(r.val)}</span></div>`).join('');
 }
 
 // ========== Render Summary ==========
-function renderSummary(invest, rev, cost, net, margin, payback, beCups, dailyCups) {
+function renderSummary(invest, rev, cost, net, margin, payback, beCups, dailyCups, realTotal, reserve) {
     const el = document.getElementById('summaryList');
     const items = [
-        ['總初始投資', fmt(invest)],
-        ['月營業額', fmt(rev)],
-        ['月總支出', fmt(cost)],
-        ['月淨利', fmt(net)],
+        ['總初始投資', fmtInt(invest)],
+        ['＋週轉金', fmtInt(reserve)],
+        ['🔴 實際總需資金', fmtInt(realTotal)],
+        ['月營業額', fmtInt(rev)],
+        ['月總支出', fmtInt(cost)],
+        ['月淨利', fmtInt(net)],
         ['毛利率', margin.toFixed(1) + '%'],
         ['淨利率', rev > 0 ? (net / rev * 100).toFixed(1) + '%' : '0%'],
         ['回本期', payback === Infinity ? '無法回本' : payback + ' 個月'],
@@ -372,29 +422,41 @@ function renderSummary(invest, rev, cost, net, margin, payback, beCups, dailyCup
 }
 
 // ========== Render Scenarios ==========
-function renderScenarios(invest, price, cupCost, fixed, days) {
+function renderScenarios(invest, price, cupCost, fixed, days, deliveryPct, deliveryComm, taxRate) {
     const grid = document.getElementById('scenarioGrid');
+    const baseCups = v('dailyCups') || 200;
     const scenarios = [
-        { title: '😊 樂觀情境 (日銷300杯)', cups: 300 },
-        { title: '😐 普通情境 (日銷200杯)', cups: 200 },
-        { title: '😟 保守情境 (日銷120杯)', cups: 120 },
-        { title: '😰 悲觀情境 (日銷80杯)', cups: 80 },
+        { title: `😊 樂觀情境 (日銷${Math.round(baseCups * 1.5)}杯)`, cups: Math.round(baseCups * 1.5) },
+        { title: `😐 普通情境 (日銷${Math.round(baseCups)}杯)`, cups: Math.round(baseCups) },
+        { title: `😟 保守情境 (日銷${Math.round(baseCups * 0.6)}杯)`, cups: Math.round(baseCups * 0.6) },
+        { title: `😰 悲觀情境 (日銷${Math.round(baseCups * 0.4)}杯)`, cups: Math.round(baseCups * 0.4) },
     ];
     grid.innerHTML = scenarios.map(sc => {
         const monthRev = price * sc.cups * days;
         const monthMat = cupCost * sc.cups * days;
-        const monthNet = monthRev - monthMat - fixed;
-        const pb = monthNet > 0 ? Math.ceil(invest / monthNet) : Infinity;
+        const scDelivery = monthRev * deliveryPct * deliveryComm;
+        const scTax = monthRev > 200000 ? monthRev * taxRate : 0;
+        const monthNet = monthRev - monthMat - fixed - scDelivery - scTax + (v('deliveryPct') > 0 ? monthRev * (v('deliveryPct')/100) * (v('deliveryCommission')/100) : 0) + (monthRev > 200000 ? monthRev * taxRate : 0);
+        // Simplified: recalc net properly
+        const actualFixed = fixed - (monthRev > 0 ? monthRev * (v('deliveryPct')/100) * (v('deliveryCommission')/100) : 0) - (monthRev > 200000 ? monthRev * (v('salesTaxRate')/100) : 0);
+        const netProfit = monthRev - monthMat - actualFixed - scDelivery - scTax;
+        const pb = netProfit > 0 ? Math.ceil(invest / netProfit) : Infinity;
         return `<div class="scenario-card"><h4>${sc.title}</h4>
-            <div class="sc-row"><span>月營收</span><span class="sc-val">${fmt(monthRev)}</span></div>
-            <div class="sc-row"><span>月淨利</span><span class="sc-val" style="color:${monthNet >= 0 ? 'var(--green)' : 'var(--red)'}">${fmt(monthNet)}</span></div>
+            <div class="sc-row"><span>月營收</span><span class="sc-val">${fmtInt(monthRev)}</span></div>
+            <div class="sc-row"><span>月淨利</span><span class="sc-val" style="color:${netProfit >= 0 ? 'var(--green)' : 'var(--red)'}">${fmtInt(netProfit)}</span></div>
             <div class="sc-row"><span>回本</span><span class="sc-val">${pb === Infinity ? '無法回本' : pb + '個月'}</span></div>
         </div>`;
     }).join('');
 }
 
 // ========== Charts ==========
-function renderCharts(mat, staff, rent, other, franchise, deposit, reno, equip, franchiseInvest, totalInvest, monthlyNet) {
+// Seasonal coefficients: Jan=1, Feb=2... Dec=12
+// Summer months (June-Sept) get boost, winter (Nov-Feb) get reduction, opening months ramp up
+const SEASON_COEFF = [0.6, 0.55, 0.75, 0.85, 1.0, 1.3, 1.5, 1.5, 1.3, 1.0, 0.7, 0.6];
+// Opening ramp-up: first 3 months are at 50%, 70%, 90% of target
+const OPENING_RAMP = [0.5, 0.7, 0.9, 1.0];
+
+function renderCharts(mat, staff, rent, other, franchise, delivery, salesTax, deposit, reno, equip, franchiseInvest, totalInvest, monthlyNet, monthlyRev, dailyCups, avgPrice, perCup, monthlyDays) {
     const chartOpts = {
         responsive: true,
         plugins: {
@@ -402,13 +464,13 @@ function renderCharts(mat, staff, rent, other, franchise, deposit, reno, equip, 
         }
     };
 
-    // Cost Structure Pie
+    // Cost Structure Pie (updated with new categories)
     if (charts.cost) charts.cost.destroy();
     charts.cost = new Chart(document.getElementById('costChart'), {
         type: 'doughnut',
         data: {
-            labels: ['原物料', '人事', '店租', '水電雜支', '加盟費用'],
-            datasets: [{ data: [mat, staff, rent, other, franchise], backgroundColor: ['#6c5ce7', '#00cec9', '#fdcb6e', '#fd79a8', '#74b9ff'], borderWidth: 0 }]
+            labels: ['原物料', '人事', '店租', '水電雜支', '加盟費用', '外送抽成', '營業稅'],
+            datasets: [{ data: [mat, staff, rent, other, franchise, delivery, salesTax], backgroundColor: ['#6c5ce7', '#00cec9', '#fdcb6e', '#fd79a8', '#74b9ff', '#e17055', '#fab1a0'], borderWidth: 0 }]
         },
         options: { ...chartOpts, cutout: '55%' }
     });
@@ -418,20 +480,38 @@ function renderCharts(mat, staff, rent, other, franchise, deposit, reno, equip, 
     charts.invest = new Chart(document.getElementById('investChart'), {
         type: 'doughnut',
         data: {
-            labels: ['押金', '裝潢', '設備', '加盟金/保證金'],
+            labels: ['押金', '裝潢', '設備', '加盟金/保證金/開辦費'],
             datasets: [{ data: [deposit, reno, equip, franchiseInvest], backgroundColor: ['#a29bfe', '#ffeaa7', '#55efc4', '#fab1a0'], borderWidth: 0 }]
         },
         options: { ...chartOpts, cutout: '55%' }
     });
 
-    // 12-month cashflow
+    // 12-month cashflow WITH seasonal coefficients + opening ramp-up
     if (charts.cashflow) charts.cashflow.destroy();
     const cfLabels = [];
     const cfData = [];
+    const cfMonthlyNet = [];
     let cumulative = -totalInvest;
+    const now = new Date();
+    const startMonth = now.getMonth(); // 0-indexed: 0=Jan
+    const fixedCosts = staff + rent + other + franchise + v('matCleaning') + v('matOther');
+
     for (let i = 1; i <= 12; i++) {
-        cfLabels.push(i + '月');
-        cumulative += monthlyNet;
+        const calMonth = (startMonth + i - 1) % 12; // calendar month index
+        const seasonCoeff = SEASON_COEFF[calMonth];
+        const rampCoeff = i <= 3 ? OPENING_RAMP[i - 1] : OPENING_RAMP[3];
+        const effectiveCoeff = seasonCoeff * rampCoeff;
+
+        const mRev = avgPrice * dailyCups * monthlyDays * effectiveCoeff;
+        const mMat = perCup * dailyCups * monthlyDays * effectiveCoeff + v('matCleaning') + v('matOther');
+        const mDelivery = mRev * (v('deliveryPct') / 100) * (v('deliveryCommission') / 100);
+        const mTax = mRev > 200000 ? mRev * (v('salesTaxRate') / 100) : 0;
+        const mNet = mRev - mMat - staff - rent - other - franchise - mDelivery - mTax;
+
+        const monthNames = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+        cfLabels.push(monthNames[calMonth]);
+        cfMonthlyNet.push(mNet);
+        cumulative += mNet;
         cfData.push(cumulative);
     }
     charts.cashflow = new Chart(document.getElementById('cashflowChart'), {
@@ -439,7 +519,7 @@ function renderCharts(mat, staff, rent, other, franchise, deposit, reno, equip, 
         data: {
             labels: cfLabels,
             datasets: [{
-                label: '累計現金流',
+                label: '累計現金流（含季節+爬坡）',
                 data: cfData,
                 borderColor: '#6c5ce7',
                 backgroundColor: 'rgba(108,92,231,0.1)',
@@ -447,6 +527,15 @@ function renderCharts(mat, staff, rent, other, franchise, deposit, reno, equip, 
                 tension: 0.4,
                 pointRadius: 4,
                 pointBackgroundColor: cfData.map(v => v >= 0 ? '#00cec9' : '#ff7675'),
+            }, {
+                label: '每月淨利',
+                data: cfMonthlyNet,
+                borderColor: 'rgba(253,203,110,0.6)',
+                borderDash: [4, 4],
+                fill: false,
+                tension: 0.3,
+                pointRadius: 3,
+                pointBackgroundColor: cfMonthlyNet.map(v => v >= 0 ? '#fdcb6e' : '#ff7675'),
             }]
         },
         options: {
@@ -458,23 +547,36 @@ function renderCharts(mat, staff, rent, other, franchise, deposit, reno, equip, 
         }
     });
 
-    // Breakeven chart
+    // Breakeven chart (also with seasonal variation)
     if (charts.breakeven) charts.breakeven.destroy();
-    const beLabels = [];
-    const beData = [];
+    const beLabels = ['開店'];
+    const beData = [-totalInvest];
     let beCum = -totalInvest;
-    const months = Math.max(24, monthlyNet > 0 ? Math.ceil(totalInvest / monthlyNet) + 6 : 36);
-    for (let i = 0; i <= Math.min(months, 48); i++) {
-        beLabels.push(i === 0 ? '開店' : i + '月');
+    const maxMonths = 48;
+    for (let i = 1; i <= maxMonths; i++) {
+        const calMonth = (startMonth + i - 1) % 12;
+        const seasonCoeff = SEASON_COEFF[calMonth];
+        const rampCoeff = i <= 3 ? OPENING_RAMP[i - 1] : OPENING_RAMP[3];
+        const effectiveCoeff = seasonCoeff * rampCoeff;
+
+        const mRev = avgPrice * dailyCups * monthlyDays * effectiveCoeff;
+        const mMat = perCup * dailyCups * monthlyDays * effectiveCoeff + v('matCleaning') + v('matOther');
+        const mDelivery = mRev * (v('deliveryPct') / 100) * (v('deliveryCommission') / 100);
+        const mTax = mRev > 200000 ? mRev * (v('salesTaxRate') / 100) : 0;
+        const mNet = mRev - mMat - staff - rent - other - franchise - mDelivery - mTax;
+
+        beCum += mNet;
+        beLabels.push(i + '月');
         beData.push(beCum);
-        beCum += monthlyNet;
+        // Stop early if we've been profitable for a while
+        if (beCum > totalInvest * 0.5 && i > 12) break;
     }
     charts.breakeven = new Chart(document.getElementById('breakevenChart'), {
         type: 'line',
         data: {
             labels: beLabels,
             datasets: [{
-                label: '累計損益',
+                label: '累計損益（季節調整）',
                 data: beData,
                 borderColor: '#a29bfe',
                 backgroundColor: ctx => {
@@ -515,6 +617,10 @@ function exportReport() {
 
     lines.push('【一、投資總覽】');
     lines.push('總初始投資: ' + document.getElementById('kpiTotalInvest').textContent);
+    const reserveEl = document.getElementById('reserveAmount');
+    if (reserveEl) lines.push('建議週轉金: ' + reserveEl.textContent);
+    const realTotalEl = document.getElementById('realTotalNeeded');
+    if (realTotalEl) lines.push('★ 實際總需資金: ' + realTotalEl.textContent);
     lines.push('月營業額預估: ' + document.getElementById('kpiMonthlyRev').textContent);
     lines.push('月淨利預估: ' + document.getElementById('kpiMonthlyProfit').textContent);
     lines.push('預估回本月數: ' + document.getElementById('kpiPayback').textContent);
@@ -548,13 +654,26 @@ function exportReport() {
 
     lines.push('【五、營業預估】');
     lines.push(`平均單價: $${v('avgPrice')} | 日銷杯數: ${v('dailyCups')} | 月營業天數: ${v('monthlyDays')}`);
+    lines.push(`原物料損耗率: ${v('wastageRate')}%`);
     lines.push('毛利率: ' + document.getElementById('grossMargin').textContent);
     lines.push('月營業額: ' + document.getElementById('monthlyRevenue').textContent);
     lines.push('');
 
-    lines.push('【六、損益兩平】');
+    lines.push('【六、隱藏成本】');
+    const deliveryEl = document.getElementById('deliveryFee');
+    if (deliveryEl) lines.push(`外送平台抽成/月: ${deliveryEl.textContent} (占比${v('deliveryPct')}%, 抽成${v('deliveryCommission')}%)`);
+    const taxEl = document.getElementById('salesTaxAmount');
+    if (taxEl) lines.push(`營業稅/月: ${taxEl.textContent} (${v('salesTaxRate')}%)`);
+    lines.push('');
+
+    lines.push('【七、損益兩平】');
     lines.push('日損益兩平杯數: ' + document.getElementById('beBreakevenCups').textContent);
     lines.push('回本月數: ' + document.getElementById('bePaybackMonths').textContent);
+    lines.push('');
+
+    lines.push('【免責聲明】');
+    lines.push('本報告僅供初步評估參考，實際金額請務必向各品牌總部/供應商直接確認。');
+    lines.push('現金流預測已加入季節係數與開幕爬坡期調整。');
 
     const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
     const a = document.createElement('a');
