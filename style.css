@@ -1,0 +1,271 @@
+/* ========== CSS Variables & Reset ========== */
+:root {
+    --bg-primary: #0f1117;
+    --bg-secondary: #1a1d2e;
+    --bg-card: #1e2235;
+    --bg-card-hover: #252a42;
+    --border: rgba(255,255,255,0.06);
+    --text-primary: #e8eaed;
+    --text-secondary: #9aa0b8;
+    --text-muted: #6b7394;
+    --accent: #6c5ce7;
+    --accent-light: #a29bfe;
+    --accent-glow: rgba(108,92,231,0.25);
+    --green: #00cec9;
+    --green-glow: rgba(0,206,201,0.2);
+    --orange: #fdcb6e;
+    --red: #ff7675;
+    --pink: #fd79a8;
+    --blue: #74b9ff;
+    --sidebar-w: 240px;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 4px 24px rgba(0,0,0,0.3);
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body {
+    font-family:'Noto Sans TC','Inter',sans-serif;
+    background:var(--bg-primary);
+    color:var(--text-primary);
+    line-height:1.6;
+    overflow-x:hidden;
+}
+input[type="number"] { -moz-appearance:textfield; }
+input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance:none; }
+
+/* ========== Sidebar ========== */
+.sidebar {
+    position:fixed; top:0; left:0; width:var(--sidebar-w); height:100vh;
+    background:var(--bg-secondary);
+    border-right:1px solid var(--border);
+    display:flex; flex-direction:column;
+    z-index:100;
+    transition:var(--transition);
+}
+.sidebar-brand {
+    padding:24px 20px; display:flex; align-items:center; gap:10px;
+    border-bottom:1px solid var(--border);
+}
+.brand-icon { font-size:28px; }
+.brand-text { font-size:18px; font-weight:700; background:linear-gradient(135deg,var(--accent-light),var(--green)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+.nav-list { list-style:none; padding:12px 8px; flex:1; overflow-y:auto; }
+.nav-list li { margin-bottom:2px; }
+.nav-link {
+    display:flex; align-items:center; gap:10px; padding:10px 14px;
+    color:var(--text-secondary); text-decoration:none; border-radius:var(--radius-sm);
+    font-size:14px; font-weight:500; transition:var(--transition);
+}
+.nav-link:hover { background:rgba(108,92,231,0.1); color:var(--text-primary); }
+.nav-link.active { background:linear-gradient(135deg,rgba(108,92,231,0.2),rgba(0,206,201,0.1)); color:#fff; box-shadow:inset 3px 0 0 var(--accent); }
+.nav-icon { font-size:18px; width:24px; text-align:center; }
+.sidebar-footer { padding:16px; border-top:1px solid var(--border); }
+.btn-export {
+    width:100%; padding:10px; background:linear-gradient(135deg,var(--accent),#4834d4);
+    color:#fff; border:none; border-radius:var(--radius-sm); cursor:pointer;
+    font-size:14px; font-weight:600; transition:var(--transition);
+}
+.btn-export:hover { transform:translateY(-2px); box-shadow:0 6px 20px var(--accent-glow); }
+
+/* ========== Mobile Header ========== */
+.mobile-header { display:none; position:fixed; top:0; left:0; right:0; height:56px; background:var(--bg-secondary); border-bottom:1px solid var(--border); z-index:99; align-items:center; padding:0 16px; gap:12px; }
+.hamburger { background:none; border:none; color:var(--text-primary); font-size:24px; cursor:pointer; }
+.mobile-title { font-size:16px; font-weight:600; }
+
+/* ========== Main Content ========== */
+.main-content { margin-left:var(--sidebar-w); padding:32px 40px; min-height:100vh; }
+.section { display:none; animation:fadeIn 0.4s ease; }
+.section.active { display:block; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+.section-header { margin-bottom:28px; }
+.section-header h1 { font-size:28px; font-weight:700; margin-bottom:4px; background:linear-gradient(135deg,#fff,var(--text-secondary)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+.section-desc { color:var(--text-muted); font-size:14px; }
+
+/* ========== Cards ========== */
+.card {
+    background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius);
+    padding:24px; margin-bottom:20px; transition:var(--transition);
+}
+.card:hover { border-color:rgba(108,92,231,0.2); }
+.card h3 { font-size:16px; font-weight:600; margin-bottom:16px; color:var(--accent-light); }
+
+/* ========== KPI Cards ========== */
+.kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin-bottom:24px; }
+.kpi-card {
+    background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius);
+    padding:20px 24px; position:relative; overflow:hidden;
+}
+.kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+.kpi-total::before { background:linear-gradient(90deg,var(--accent),var(--accent-light)); }
+.kpi-monthly::before { background:linear-gradient(90deg,var(--green),var(--blue)); }
+.kpi-profit::before { background:linear-gradient(90deg,var(--orange),var(--pink)); }
+.kpi-roi::before { background:linear-gradient(90deg,var(--pink),var(--red)); }
+.kpi-label { font-size:13px; color:var(--text-muted); margin-bottom:8px; }
+.kpi-value { font-size:28px; font-weight:700; font-family:'Inter',sans-serif; }
+.kpi-sub { font-size:11px; color:var(--text-muted); margin-top:6px; }
+
+/* ========== Dashboard Grid ========== */
+.dashboard-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+.chart-card canvas { width:100%!important; max-height:280px; }
+.summary-card .summary-list { display:flex; flex-direction:column; gap:8px; }
+.summary-item { display:flex; justify-content:space-between; padding:8px 12px; background:var(--bg-primary); border-radius:var(--radius-sm); font-size:13px; }
+.summary-item .s-label { color:var(--text-secondary); }
+.summary-item .s-value { font-weight:600; font-family:'Inter',sans-serif; }
+
+/* ========== Form Rows ========== */
+.form-row {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 0; border-bottom:1px solid var(--border);
+}
+.form-row:last-child { border-bottom:none; }
+.form-row label { font-size:14px; color:var(--text-secondary); flex:1; }
+.input-field {
+    width:140px; padding:8px 12px; background:var(--bg-primary); border:1px solid var(--border);
+    border-radius:var(--radius-sm); color:var(--text-primary); font-size:14px; text-align:right;
+    font-family:'Inter',sans-serif; transition:var(--transition);
+}
+.input-field:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-glow); }
+.highlight-row { background:linear-gradient(135deg,rgba(108,92,231,0.08),rgba(0,206,201,0.05)); margin:8px -24px; padding:12px 24px!important; border-radius:var(--radius-sm); border:none!important; }
+.cost-display, .pct-display { font-size:18px; font-weight:700; color:var(--green); font-family:'Inter',sans-serif; }
+
+/* ========== Partner List ========== */
+.partner-list { margin:16px 0; }
+.partner-row { display:grid; grid-template-columns:40px 1fr 140px 140px; gap:12px; align-items:center; padding:10px 0; border-bottom:1px solid var(--border); }
+.partner-row .partner-num { width:32px; height:32px; background:var(--accent); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; }
+
+/* ========== Equipment Table ========== */
+.equipment-controls { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.btn { padding:8px 16px; background:var(--accent); color:#fff; border:none; border-radius:var(--radius-sm); cursor:pointer; font-size:13px; font-weight:500; transition:var(--transition); }
+.btn:hover { transform:translateY(-1px); box-shadow:0 4px 12px var(--accent-glow); }
+.btn-sm { padding:6px 12px; font-size:12px; }
+.btn-outline { background:transparent; border:1px solid var(--accent); color:var(--accent); }
+.btn-outline:hover { background:var(--accent); color:#fff; }
+.equipment-total { margin-left:auto; font-size:14px; color:var(--text-secondary); }
+.equipment-total strong { color:var(--green); font-size:18px; font-family:'Inter',sans-serif; }
+.equipment-table-wrap { overflow-x:auto; margin-top:16px; }
+.equipment-table { width:100%; border-collapse:collapse; font-size:13px; }
+.equipment-table th { background:var(--bg-secondary); padding:10px 12px; text-align:left; font-weight:600; color:var(--text-muted); border-bottom:2px solid var(--border); position:sticky; top:0; }
+.equipment-table td { padding:10px 12px; border-bottom:1px solid var(--border); }
+.equipment-table tr:hover td { background:var(--bg-card-hover); }
+.equipment-table input[type="checkbox"] { width:18px; height:18px; accent-color:var(--accent); cursor:pointer; }
+.equipment-table select { background:var(--bg-primary); color:var(--text-primary); border:1px solid var(--border); border-radius:4px; padding:4px 8px; font-size:12px; }
+.equipment-table input[type="number"] { width:60px; padding:4px 8px; background:var(--bg-primary); border:1px solid var(--border); border-radius:4px; color:var(--text-primary); text-align:center; font-size:12px; }
+
+/* ========== Franchise Grid ========== */
+.franchise-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px; margin-bottom:24px; }
+.franchise-card {
+    background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius);
+    padding:20px; transition:var(--transition); cursor:pointer;
+}
+.franchise-card:hover { border-color:var(--accent); transform:translateY(-2px); box-shadow:var(--shadow); }
+.franchise-card.selected { border-color:var(--green); box-shadow:0 0 0 2px var(--green-glow); }
+.fc-header { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+.fc-logo { width:40px; height:40px; border-radius:8px; background:var(--bg-primary); display:flex; align-items:center; justify-content:center; font-size:20px; }
+.fc-name { font-size:16px; font-weight:600; }
+.fc-row { display:flex; justify-content:space-between; padding:6px 0; font-size:13px; border-bottom:1px solid var(--border); }
+.fc-row:last-child { border:none; }
+.fc-row .fc-label { color:var(--text-muted); }
+.fc-row .fc-val { font-weight:600; color:var(--orange); font-family:'Inter',sans-serif; }
+
+/* ========== P&L Table ========== */
+.pnl-table { font-size:14px; }
+.pnl-row { display:flex; justify-content:space-between; padding:10px 16px; border-bottom:1px solid var(--border); }
+.pnl-row:hover { background:var(--bg-card-hover); }
+.pnl-row.pnl-header { font-weight:700; color:var(--accent-light); background:var(--bg-secondary); border-radius:var(--radius-sm) var(--radius-sm) 0 0; }
+.pnl-row.pnl-total { font-weight:700; background:linear-gradient(135deg,rgba(108,92,231,0.1),rgba(0,206,201,0.08)); border-radius:0 0 var(--radius-sm) var(--radius-sm); }
+.pnl-row .pnl-label { color:var(--text-secondary); }
+.pnl-row .pnl-val { font-family:'Inter',sans-serif; font-weight:600; }
+.pnl-row.pnl-total .pnl-val { color:var(--green); font-size:18px; }
+.pnl-row.pnl-negative .pnl-val { color:var(--red); }
+
+/* ========== Breakeven ========== */
+.breakeven-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px; }
+.be-stat { text-align:center; padding:16px; background:var(--bg-primary); border-radius:var(--radius-sm); }
+.be-label { font-size:13px; color:var(--text-muted); margin-bottom:8px; }
+.be-value { font-size:24px; font-weight:700; font-family:'Inter',sans-serif; }
+.be-value.highlight { color:var(--green); }
+.scenario-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; }
+.scenario-card { background:var(--bg-primary); border-radius:var(--radius-sm); padding:16px; }
+.scenario-card h4 { font-size:14px; margin-bottom:12px; color:var(--orange); }
+.scenario-card .sc-row { display:flex; justify-content:space-between; font-size:13px; padding:4px 0; }
+.scenario-card .sc-row .sc-val { font-weight:600; font-family:'Inter',sans-serif; }
+
+/* ========== Checklist ========== */
+.checklist-timeline { position:relative; }
+.cl-phase { margin-bottom:24px; }
+.cl-phase-title {
+    font-size:16px; font-weight:700; padding:12px 20px;
+    background:linear-gradient(135deg,var(--bg-card),var(--bg-card-hover));
+    border:1px solid var(--border); border-radius:var(--radius-sm);
+    margin-bottom:12px; display:flex; align-items:center; gap:10px;
+}
+.cl-phase-title .phase-badge { background:var(--accent); padding:2px 10px; border-radius:12px; font-size:11px; font-weight:600; }
+.cl-items { padding-left:20px; }
+.cl-item {
+    display:flex; align-items:flex-start; gap:12px; padding:10px 16px;
+    border-left:2px solid var(--border); margin-left:8px; transition:var(--transition);
+}
+.cl-item:hover { border-left-color:var(--accent); background:rgba(108,92,231,0.04); }
+.cl-check { width:20px; height:20px; border:2px solid var(--text-muted); border-radius:4px; flex-shrink:0; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:var(--transition); margin-top:2px; }
+.cl-check.checked { background:var(--green); border-color:var(--green); }
+.cl-check.checked::after { content:'✓'; font-size:12px; color:#fff; }
+.cl-text { font-size:14px; color:var(--text-secondary); }
+.cl-item.done .cl-text { text-decoration:line-through; color:var(--text-muted); }
+
+/* ========== Ref Hint ========== */
+.ref-hint { font-size:11px; color:var(--text-muted); margin-left:8px; white-space:nowrap; }
+
+/* ========== Salary/Rent Ref Tables ========== */
+.salary-ref-table, .rent-ref-table { overflow-x:auto; }
+.ref-table { width:100%; border-collapse:collapse; font-size:13px; }
+.ref-table th { background:var(--bg-secondary); padding:8px 12px; text-align:left; font-weight:600; color:var(--text-muted); border-bottom:2px solid var(--border); }
+.ref-table td { padding:8px 12px; border-bottom:1px solid var(--border); }
+.ref-table tr:hover td { background:var(--bg-card-hover); }
+.ref-table .salary-range { color:var(--orange); font-weight:600; font-family:'Inter',sans-serif; }
+.ref-table .rent-range { color:var(--green); font-weight:600; font-family:'Inter',sans-serif; }
+.ref-table .note-text { color:var(--text-muted); font-size:12px; }
+
+/* ========== Suppliers ========== */
+.supplier-category { margin-bottom:24px; }
+.supplier-category-title {
+    font-size:16px; font-weight:700; padding:12px 20px;
+    background:linear-gradient(135deg,var(--bg-card),var(--bg-card-hover));
+    border:1px solid var(--border); border-radius:var(--radius-sm);
+    margin-bottom:12px; color:var(--accent-light);
+}
+.supplier-cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:12px; }
+.supplier-card {
+    background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-sm);
+    padding:16px; transition:var(--transition);
+}
+.supplier-card:hover { border-color:var(--accent); }
+.supplier-card .sup-name { font-size:15px; font-weight:600; margin-bottom:6px; }
+.supplier-card .sup-address { font-size:13px; color:var(--blue); margin-bottom:4px; }
+.supplier-card .sup-address a { color:var(--blue); text-decoration:none; }
+.supplier-card .sup-address a:hover { text-decoration:underline; }
+.supplier-card .sup-phone { font-size:12px; color:var(--text-muted); margin-bottom:4px; }
+.supplier-card .sup-note { font-size:12px; color:var(--orange); }
+
+/* ========== Franchise Status Badges ========== */
+.fc-status { display:inline-block; padding:2px 8px; border-radius:10px; font-size:10px; font-weight:600; margin-left:auto; }
+.fc-status.open { background:rgba(0,206,201,0.15); color:var(--green); }
+.fc-status.closed { background:rgba(255,118,117,0.15); color:var(--red); }
+.fc-status.limited { background:rgba(253,203,110,0.15); color:var(--orange); }
+.fc-status.not-franchise { background:rgba(116,185,255,0.15); color:var(--blue); }
+
+/* ========== Responsive ========== */
+@media (max-width:900px) {
+    .sidebar { transform:translateX(-100%); }
+    .sidebar.open { transform:translateX(0); box-shadow:var(--shadow); }
+    .mobile-header { display:flex; }
+    .main-content { margin-left:0; padding:72px 16px 32px; }
+    .kpi-grid { grid-template-columns:1fr 1fr; }
+    .dashboard-grid { grid-template-columns:1fr; }
+    .partner-row { grid-template-columns:32px 1fr 100px 100px; }
+}
+@media (max-width:600px) {
+    .kpi-grid { grid-template-columns:1fr; }
+    .franchise-grid { grid-template-columns:1fr; }
+    .breakeven-stats { grid-template-columns:1fr 1fr; }
+}

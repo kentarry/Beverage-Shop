@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>飲料店開店規劃工具 | 完整評估計算器</title>
+    <meta name="description" content="飲料店開店完整規劃工具，包含預算評估、設備清單、人事成本、回本計算等功能">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <span class="brand-icon">🧋</span>
+            <span class="brand-text">開店規劃</span>
+        </div>
+        <ul class="nav-list">
+            <li><a href="#dashboard" class="nav-link active" data-section="dashboard"><span class="nav-icon">📊</span>總覽儀表板</a></li>
+            <li><a href="#partners" class="nav-link" data-section="partners"><span class="nav-icon">🤝</span>合夥人設定</a></li>
+            <li><a href="#staff" class="nav-link" data-section="staff"><span class="nav-icon">👥</span>人事編制</a></li>
+            <li><a href="#rent" class="nav-link" data-section="rent"><span class="nav-icon">🏠</span>店租與裝潢</a></li>
+            <li><a href="#equipment" class="nav-link" data-section="equipment"><span class="nav-icon">⚙️</span>設備清單</a></li>
+            <li><a href="#materials" class="nav-link" data-section="materials"><span class="nav-icon">🫧</span>原物料成本</a></li>
+            <li><a href="#suppliers" class="nav-link" data-section="suppliers"><span class="nav-icon">📍</span>供應商地圖</a></li>
+            <li><a href="#menu" class="nav-link" data-section="menu"><span class="nav-icon">📋</span>菜單定價</a></li>
+            <li><a href="#franchise" class="nav-link" data-section="franchise"><span class="nav-icon">🏪</span>加盟比較</a></li>
+            <li><a href="#financial" class="nav-link" data-section="financial"><span class="nav-icon">💰</span>財務預估</a></li>
+            <li><a href="#breakeven" class="nav-link" data-section="breakeven"><span class="nav-icon">📈</span>損益兩平</a></li>
+            <li><a href="#checklist" class="nav-link" data-section="checklist"><span class="nav-icon">✅</span>開店清單</a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <button id="exportBtn" class="btn-export">📄 匯出報告</button>
+        </div>
+    </nav>
+
+    <!-- Mobile Header -->
+    <header class="mobile-header">
+        <button class="hamburger" id="hamburgerBtn">☰</button>
+        <span class="mobile-title">🧋 飲料店開店規劃</span>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content" id="mainContent">
+
+        <!-- Section: Dashboard -->
+        <section id="dashboard" class="section active">
+            <div class="section-header">
+                <h1>總覽儀表板</h1>
+                <p class="section-desc">所有關鍵數據一目了然</p>
+            </div>
+            <div class="kpi-grid">
+                <div class="kpi-card kpi-total"><div class="kpi-label">總投資金額</div><div class="kpi-value" id="kpiTotalInvest">$0</div><div class="kpi-sub">含裝潢、設備、加盟金</div></div>
+                <div class="kpi-card kpi-monthly"><div class="kpi-label">月營業額預估</div><div class="kpi-value" id="kpiMonthlyRev">$0</div><div class="kpi-sub">依每日杯數與均價</div></div>
+                <div class="kpi-card kpi-profit"><div class="kpi-label">月淨利預估</div><div class="kpi-value" id="kpiMonthlyProfit">$0</div><div class="kpi-sub">扣除所有成本</div></div>
+                <div class="kpi-card kpi-roi"><div class="kpi-label">預估回本月數</div><div class="kpi-value" id="kpiPayback">-- 月</div><div class="kpi-sub">總投資 ÷ 月淨利</div></div>
+            </div>
+            <div class="dashboard-grid">
+                <div class="card chart-card">
+                    <h3>月度成本結構</h3>
+                    <canvas id="costChart" width="400" height="280"></canvas>
+                </div>
+                <div class="card chart-card">
+                    <h3>投資佔比分析</h3>
+                    <canvas id="investChart" width="400" height="280"></canvas>
+                </div>
+                <div class="card summary-card">
+                    <h3>快速摘要</h3>
+                    <div class="summary-list" id="summaryList"></div>
+                </div>
+                <div class="card chart-card">
+                    <h3>12個月現金流預測</h3>
+                    <canvas id="cashflowChart" width="400" height="280"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section: Partners -->
+        <section id="partners" class="section">
+            <div class="section-header"><h1>合夥人設定</h1><p class="section-desc">設定合夥人數量與出資比例</p></div>
+            <div class="card">
+                <div class="form-row">
+                    <label>合夥人數量</label>
+                    <input type="number" id="partnerCount" min="1" max="10" value="2" class="input-field">
+                </div>
+                <div id="partnerList" class="partner-list"></div>
+                <div class="form-row highlight-row">
+                    <span>總出資比例</span>
+                    <span id="totalSharePct" class="pct-display">0%</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section: Staff -->
+        <section id="staff" class="section">
+            <div class="section-header"><h1>人事編制</h1><p class="section-desc">店長、正職、工讀生薪資計算（2026年基本工資：月薪$29,500 / 時薪$196）</p></div>
+            <div class="card">
+                <h3>📋 2026年飲料店薪資行情參考</h3>
+                <div class="salary-ref-table" id="salaryRefTable"></div>
+            </div>
+            <div class="card">
+                <h3>店長</h3>
+                <div class="form-row"><label>店長人數</label><input type="number" id="managerCount" min="0" max="5" value="1" class="input-field"></div>
+                <div class="form-row"><label>店長月薪 (NT$)</label><input type="number" id="managerSalary" min="0" value="40000" class="input-field"><span class="ref-hint">行情 $38,000-$48,000</span></div>
+            </div>
+            <div class="card">
+                <h3>正職員工</h3>
+                <div class="form-row"><label>正職人數</label><input type="number" id="fullTimeCount" min="0" max="20" value="2" class="input-field"></div>
+                <div class="form-row"><label>正職月薪 (NT$)</label><input type="number" id="fullTimeSalary" min="0" value="32000" class="input-field"><span class="ref-hint">行情 $31,000-$36,000</span></div>
+            </div>
+            <div class="card">
+                <h3>工讀生(PT)</h3>
+                <div class="form-row"><label>工讀人數</label><input type="number" id="partTimeCount" min="0" max="20" value="3" class="input-field"></div>
+                <div class="form-row"><label>時薪 (NT$)</label><input type="number" id="partTimeHourly" min="0" value="196" class="input-field"><span class="ref-hint">2026基本工資$196</span></div>
+                <div class="form-row"><label>每人每月平均時數</label><input type="number" id="partTimeHours" min="0" value="80" class="input-field"></div>
+            </div>
+            <div class="card">
+                <h3>勞健保與獎金</h3>
+                <div class="form-row"><label>勞健保加成 (%)</label><input type="number" id="insuranceRate" min="0" max="30" value="15" step="0.5" class="input-field"></div>
+                <div class="form-row"><label>每月獎金/津貼 (NT$)</label><input type="number" id="monthlyBonus" min="0" value="5000" class="input-field"></div>
+                <div class="form-row highlight-row"><span>每月人事總成本</span><span id="totalStaffCost" class="cost-display">$0</span></div>
+            </div>
+        </section>
+
+        <!-- Section: Rent -->
+        <section id="rent" class="section">
+            <div class="section-header"><h1>店租與裝潢</h1><p class="section-desc">預計開店地點：新北市中和區</p></div>
+            <div class="card">
+                <h3>📍 中和區店租行情參考（10-15坪飲料店）</h3>
+                <div class="rent-ref-table" id="rentRefTable"></div>
+            </div>
+            <div class="card">
+                <h3>租金設定</h3>
+                <div class="form-row"><label>月租金 (NT$)</label><input type="number" id="monthlyRent" min="0" value="38000" class="input-field"><span class="ref-hint">中和行情 $25,000-$55,000</span></div>
+                <div class="form-row"><label>押金 (幾個月)</label><input type="number" id="depositMonths" min="0" max="6" value="2" class="input-field"></div>
+                <div class="form-row"><label>管理費/月 (NT$)</label><input type="number" id="mgmtFee" min="0" value="2000" class="input-field"></div>
+            </div>
+            <div class="card">
+                <h3>裝潢工程</h3>
+                <div class="form-row"><label>室內裝潢 (NT$)</label><input type="number" id="interiorCost" min="0" value="450000" class="input-field"></div>
+                <div class="form-row"><label>招牌製作 (NT$)</label><input type="number" id="signCost" min="0" value="60000" class="input-field"></div>
+                <div class="form-row"><label>水電管線工程 (NT$)</label><input type="number" id="plumbingCost" min="0" value="100000" class="input-field"></div>
+                <div class="form-row"><label>冷氣空調 (NT$)</label><input type="number" id="acCost" min="0" value="80000" class="input-field"></div>
+                <div class="form-row highlight-row"><span>裝潢總計</span><span id="totalRenovation" class="cost-display">$0</span></div>
+            </div>
+        </section>
+
+        <!-- Section: Equipment -->
+        <section id="equipment" class="section">
+            <div class="section-header"><h1>設備清單</h1><p class="section-desc">全新/二手價格比較，勾選需要的設備</p></div>
+            <div class="card equipment-controls">
+                <button class="btn btn-sm" id="eqSelectAll">全選</button>
+                <button class="btn btn-sm btn-outline" id="eqDeselectAll">取消全選</button>
+                <span class="equipment-total">已選設備總計: <strong id="eqTotal">$0</strong></span>
+            </div>
+            <div class="equipment-table-wrap">
+                <table class="equipment-table" id="equipmentTable">
+                    <thead>
+                        <tr>
+                            <th>選用</th><th>設備名稱</th><th>規格說明</th><th>全新價</th><th>二手價</th><th>選擇</th><th>數量</th><th>小計</th>
+                        </tr>
+                    </thead>
+                    <tbody id="equipmentBody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Section: Materials -->
+        <section id="materials" class="section">
+            <div class="section-header"><h1>原物料成本</h1><p class="section-desc">茶葉、糖、杯子等耗材估算</p></div>
+            <div class="card">
+                <h3>每杯平均原物料成本</h3>
+                <div class="form-row"><label>茶葉/咖啡 (NT$)</label><input type="number" id="matTea" min="0" value="5" step="0.5" class="input-field"></div>
+                <div class="form-row"><label>糖/果糖 (NT$)</label><input type="number" id="matSugar" min="0" value="1" step="0.5" class="input-field"></div>
+                <div class="form-row"><label>鮮奶/奶精 (NT$)</label><input type="number" id="matMilk" min="0" value="6" step="0.5" class="input-field"></div>
+                <div class="form-row"><label>配料(珍珠等) (NT$)</label><input type="number" id="matTopping" min="0" value="3" step="0.5" class="input-field"></div>
+                <div class="form-row"><label>杯子+封膜+吸管 (NT$)</label><input type="number" id="matCup" min="0" value="3.5" step="0.5" class="input-field"></div>
+                <div class="form-row"><label>提袋/包材 (NT$)</label><input type="number" id="matBag" min="0" value="1" step="0.5" class="input-field"></div>
+                <div class="form-row highlight-row"><span>每杯平均成本</span><span id="perCupCost" class="cost-display">$0</span></div>
+            </div>
+            <div class="card">
+                <h3>每月固定耗材</h3>
+                <div class="form-row"><label>清潔用品/月 (NT$)</label><input type="number" id="matCleaning" min="0" value="3000" class="input-field"></div>
+                <div class="form-row"><label>其他雜項/月 (NT$)</label><input type="number" id="matOther" min="0" value="2000" class="input-field"></div>
+            </div>
+        </section>
+
+        <!-- Section: Suppliers -->
+        <section id="suppliers" class="section">
+            <div class="section-header"><h1>原物料供應商地圖</h1><p class="section-desc">新北/台北地區可實地走訪的供應商，點擊地址可開啟 Google Maps</p></div>
+            <div id="suppliersContainer"></div>
+        </section>
+
+        <!-- Section: Menu -->
+        <section id="menu" class="section">
+            <div class="section-header"><h1>菜單定價與銷量</h1><p class="section-desc">設定平均售價與預估日銷量</p></div>
+            <div class="card">
+                <div class="form-row"><label>平均每杯售價 (NT$)</label><input type="number" id="avgPrice" min="0" value="55" class="input-field"></div>
+                <div class="form-row"><label>每日預估銷售杯數</label><input type="number" id="dailyCups" min="0" value="200" class="input-field"></div>
+                <div class="form-row"><label>每月營業天數</label><input type="number" id="monthlyDays" min="0" max="31" value="30" class="input-field"></div>
+                <div class="form-row highlight-row"><span>毛利率</span><span id="grossMargin" class="pct-display">0%</span></div>
+                <div class="form-row highlight-row"><span>月營業額</span><span id="monthlyRevenue" class="cost-display">$0</span></div>
+                <div class="form-row highlight-row"><span>月原物料成本</span><span id="monthlyMatCost" class="cost-display">$0</span></div>
+                <div class="form-row highlight-row"><span>月毛利</span><span id="monthlyGross" class="cost-display">$0</span></div>
+            </div>
+        </section>
+
+        <!-- Section: Franchise -->
+        <section id="franchise" class="section">
+            <div class="section-header"><h1>加盟 vs 自創品牌</h1><p class="section-desc">知名飲料品牌加盟金與比較（⚠️ 金額為市場公開資訊，實際請洽各品牌總部確認）</p></div>
+            <div class="franchise-grid" id="franchiseGrid"></div>
+            <div class="card">
+                <h3>自訂加盟方案</h3>
+                <div class="form-row"><label>加盟金 (NT$)</label><input type="number" id="customFranchiseFee" min="0" value="0" class="input-field"></div>
+                <div class="form-row"><label>保證金 (NT$)</label><input type="number" id="customFranchiseDeposit" min="0" value="0" class="input-field"></div>
+                <div class="form-row"><label>權利金/月 (NT$)</label><input type="number" id="customRoyalty" min="0" value="0" class="input-field"></div>
+                <div class="form-row"><label>廣告基金/月 (NT$)</label><input type="number" id="customAdFund" min="0" value="0" class="input-field"></div>
+            </div>
+        </section>
+
+        <!-- Section: Financial -->
+        <section id="financial" class="section">
+            <div class="section-header"><h1>財務預估</h1><p class="section-desc">完整月度損益表</p></div>
+            <div class="card">
+                <h3>其他月固定支出</h3>
+                <div class="form-row"><label>水費/月 (NT$)</label><input type="number" id="waterBill" min="0" value="3000" class="input-field"></div>
+                <div class="form-row"><label>電費/月 (NT$)</label><input type="number" id="electricBill" min="0" value="12000" class="input-field"></div>
+                <div class="form-row"><label>瓦斯/月 (NT$)</label><input type="number" id="gasBill" min="0" value="2000" class="input-field"></div>
+                <div class="form-row"><label>電話/網路/月 (NT$)</label><input type="number" id="phoneBill" min="0" value="1500" class="input-field"></div>
+                <div class="form-row"><label>POS/外送平台費/月</label><input type="number" id="posFee" min="0" value="3000" class="input-field"></div>
+                <div class="form-row"><label>行銷廣告/月 (NT$)</label><input type="number" id="marketingFee" min="0" value="5000" class="input-field"></div>
+                <div class="form-row"><label>保險/稅務/月 (NT$)</label><input type="number" id="taxFee" min="0" value="3000" class="input-field"></div>
+                <div class="form-row"><label>其他雜支/月 (NT$)</label><input type="number" id="miscFee" min="0" value="3000" class="input-field"></div>
+            </div>
+            <div class="card">
+                <h3>📊 月度損益表</h3>
+                <div class="pnl-table" id="pnlTable"></div>
+            </div>
+        </section>
+
+        <!-- Section: Breakeven -->
+        <section id="breakeven" class="section">
+            <div class="section-header"><h1>損益兩平分析</h1><p class="section-desc">回本時間與損益兩平點</p></div>
+            <div class="card">
+                <div class="breakeven-stats">
+                    <div class="be-stat"><div class="be-label">總初始投資</div><div class="be-value" id="beTotalInvest">$0</div></div>
+                    <div class="be-stat"><div class="be-label">月淨利</div><div class="be-value" id="beMonthlyNet">$0</div></div>
+                    <div class="be-stat"><div class="be-label">回本月數</div><div class="be-value highlight" id="bePaybackMonths">-- 月</div></div>
+                    <div class="be-stat"><div class="be-label">日損益兩平杯數</div><div class="be-value highlight" id="beBreakevenCups">-- 杯</div></div>
+                </div>
+            </div>
+            <div class="card chart-card">
+                <h3>累計現金流曲線</h3>
+                <canvas id="breakevenChart" width="600" height="300"></canvas>
+            </div>
+            <div class="card">
+                <h3>情境模擬</h3>
+                <div class="scenario-grid" id="scenarioGrid"></div>
+            </div>
+        </section>
+
+        <!-- Section: Checklist -->
+        <section id="checklist" class="section">
+            <div class="section-header"><h1>開店籌備清單</h1><p class="section-desc">從籌備到開幕的完整待辦事項</p></div>
+            <div class="checklist-timeline" id="checklistTimeline"></div>
+        </section>
+
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
