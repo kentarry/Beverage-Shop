@@ -11,6 +11,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initFranchise();
     initSuppliers();
     initChecklist();
+    initLogs();
+    initCollaboration();
     bindAllInputs();
     loadSavedState();
     recalcAll();
@@ -246,6 +248,8 @@ function initChecklist() {
             item.querySelector('.cl-check').addEventListener('click', function () {
                 this.classList.toggle('checked');
                 item.classList.toggle('done');
+                const state = saveState();
+                broadcastState(state);
             });
             items.appendChild(item);
         });
@@ -688,11 +692,12 @@ const SAVE_KEY = 'beverage_shop_planner_state';
 function autoSaveSetup() {
     // Save state every 5 seconds if changed
     setInterval(() => {
-        saveState();
+        const state = saveState();
+        broadcastState(state);
     }, 5000);
 }
 
-function saveState() {
+function getStateObj() {
     const state = {};
     document.querySelectorAll('.input-field').forEach(inp => {
         if (inp.id) state[inp.id] = inp.value;
@@ -714,19 +719,30 @@ function saveState() {
         });
     });
     state._equipment = eqState;
-    try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch(e) {}
+    // Save logs
+    state._logs = appLogs;
+    return state;
 }
 
-function loadSavedState() {
+function saveState() {
+    const state = getStateObj();
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch(e) {}
+    return state;
+}
+
+function loadSavedState(stateObj = null) {
     try {
-        const raw = localStorage.getItem(SAVE_KEY);
-        if (!raw) return;
-        const state = JSON.parse(raw);
+        let state = stateObj;
+        if (!state) {
+            const raw = localStorage.getItem(SAVE_KEY);
+            if (!raw) return;
+            state = JSON.parse(raw);
+        }
         // Restore input fields
         Object.keys(state).forEach(key => {
             if (key.startsWith('_')) return;
             const el = document.getElementById(key);
-            if (el) el.value = state[key];
+            if (el && el.value !== state[key]) el.value = state[key];
         });
         // Restore checklist
         if (state._checks) {
@@ -734,6 +750,9 @@ function loadSavedState() {
                 if (state._checks.includes(i)) {
                     el.classList.add('checked');
                     el.closest('.cl-item')?.classList.add('done');
+                } else {
+                    el.classList.remove('checked');
+                    el.closest('.cl-item')?.classList.remove('done');
                 }
             });
         }
@@ -749,5 +768,143 @@ function loadSavedState() {
             });
             updateEquipmentTotals();
         }
+        // Restore logs
+        if (state._logs) {
+            appLogs = state._logs;
+            renderLogs();
+        }
     } catch(e) {}
+}
+
+// ========== Operation Logs ==========
+let appLogs = [];
+
+function initLogs() {
+    const btn = document.getElementById('btnAddLog');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+        const d = document.getElementById('logDate').value;
+        const r = parseFloat(document.getElementById('logRevenue').value) || 0;
+        const o = parseFloat(document.getElementById('logOrders').value) || 0;
+        const c = parseFloat(document.getElementById('logCups').value) || 0;
+        if (!d) return alert('請選擇日期');
+        appLogs.push({ date: d, revenue: r, orders: o, cups: c, id: Date.now() });
+        appLogs.sort((a,b) => new Date(b.date) - new Date(a.date));
+        renderLogs();
+        const state = saveState();
+        broadcastState(state);
+        document.getElementById('logRevenue').value = '';
+        document.getElementById('logOrders').value = '';
+        document.getElementById('logCups').value = '';
+    });
+}
+
+function renderLogs() {
+    const tbody = document.getElementById('logsTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = appLogs.map(log => {
+        const avgOrder = log.orders > 0 ? (log.revenue / log.orders).toFixed(1) : 0;
+        return `
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                <td style="padding:10px;">${log.date}</td>
+                <td style="padding:10px; color:var(--green);">${fmtInt(log.revenue)}</td>
+                <td style="padding:10px;">${log.orders}</td>
+                <td style="padding:10px;">${log.cups}</td>
+                <td style="padding:10px;">$${avgOrder}</td>
+                <td style="padding:10px;">
+                    <button onclick="deleteLog(${log.id})" style="background:transparent; border:none; color:var(--red); cursor:pointer;">❌</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+window.deleteLog = function(id) {
+    if (!confirm('確定刪除此筆紀錄？')) return;
+    appLogs = appLogs.filter(L => L.id !== id);
+    renderLogs();
+    const state = saveState();
+    broadcastState(state);
+}
+
+// ========== Collaboration (PeerJS) ==========
+let peer = null;
+let conn = null;
+
+function initCollaboration() {
+    const btnCreate = document.getElementById('btnCreateRoom');
+    const btnJoin = document.getElementById('btnJoinRoom');
+    const roomIdInput = document.getElementById('collabRoomId');
+    const statusDiv = document.getElementById('collabStatus');
+
+    if (!btnCreate) return;
+
+    btnCreate.addEventListener('click', () => {
+        if (peer) peer.destroy();
+        peer = new Peer();
+        statusDiv.textContent = '建立房間中...';
+        statusDiv.style.color = 'var(--orange)';
+        
+        peer.on('open', id => {
+            roomIdInput.value = id;
+            statusDiv.textContent = '等待合夥人加入...';
+            statusDiv.style.color = 'var(--blue)';
+        });
+
+        peer.on('connection', connection => {
+            conn = connection;
+            setupConnection(conn, statusDiv);
+            // Send current state to new peer
+            setTimeout(() => broadcastState(getStateObj()), 500);
+        });
+    });
+
+    btnJoin.addEventListener('click', () => {
+        const id = roomIdInput.value.trim();
+        if (!id) return alert('請輸入房間代碼');
+        
+        if (peer) peer.destroy();
+        peer = new Peer();
+        statusDiv.textContent = '連線中...';
+        statusDiv.style.color = 'var(--orange)';
+
+        peer.on('open', () => {
+            conn = peer.connect(id);
+            setupConnection(conn, statusDiv);
+        });
+    });
+
+    // Broadcast on any input change immediately
+    document.querySelectorAll('.input-field').forEach(inp => {
+        inp.addEventListener('change', () => {
+            const state = saveState();
+            broadcastState(state);
+        });
+    });
+}
+
+function setupConnection(connection, statusDiv) {
+    connection.on('open', () => {
+        statusDiv.textContent = '🟢 已連線 (即時同步中)';
+        statusDiv.style.color = 'var(--green)';
+    });
+
+    connection.on('data', data => {
+        if (data && data.type === 'STATE_SYNC') {
+            loadSavedState(data.state);
+            recalcAll();
+        }
+    });
+
+    connection.on('close', () => {
+        statusDiv.textContent = '🔴 連線已中斷';
+        statusDiv.style.color = 'var(--red)';
+        conn = null;
+    });
+}
+
+function broadcastState(state) {
+    if (conn && conn.open) {
+        conn.send({ type: 'STATE_SYNC', state: state });
+    }
 }

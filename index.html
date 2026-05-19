@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
 </head>
 <body>
     <!-- Navigation -->
@@ -15,6 +16,15 @@
         <div class="sidebar-brand">
             <span class="brand-icon">🧋</span>
             <span class="brand-text">開店規劃</span>
+        </div>
+        <div class="collab-box" style="padding: 10px 20px; background: rgba(255,255,255,0.02); margin-bottom: 10px; font-size: 13px;">
+            <div style="color: var(--blue); margin-bottom: 5px;">🤝 遠端協作</div>
+            <div id="collabStatus" style="color: var(--text-muted); margin-bottom: 8px;">未連線</div>
+            <input type="text" id="collabRoomId" placeholder="輸入房間代碼" class="input-field" style="padding: 4px 8px; margin-bottom: 5px; text-align: center;">
+            <div style="display: flex; gap: 5px;">
+                <button id="btnCreateRoom" style="flex:1; padding:4px; border-radius:4px; background:var(--blue); color:#fff; border:none; cursor:pointer;">開房</button>
+                <button id="btnJoinRoom" style="flex:1; padding:4px; border-radius:4px; background:rgba(255,255,255,0.1); color:#fff; border:none; cursor:pointer;">加入</button>
+            </div>
         </div>
         <ul class="nav-list">
             <li><a href="#dashboard" class="nav-link active" data-section="dashboard"><span class="nav-icon">📊</span>總覽儀表板</a></li>
@@ -29,6 +39,8 @@
             <li><a href="#financial" class="nav-link" data-section="financial"><span class="nav-icon">💰</span>財務預估</a></li>
             <li><a href="#breakeven" class="nav-link" data-section="breakeven"><span class="nav-icon">📈</span>損益兩平</a></li>
             <li><a href="#checklist" class="nav-link" data-section="checklist"><span class="nav-icon">✅</span>開店清單</a></li>
+            <li><a href="#guide" class="nav-link" data-section="guide"><span class="nav-icon">📖</span>開店指南(避坑)</a></li>
+            <li><a href="#logs" class="nav-link" data-section="logs"><span class="nav-icon">📒</span>營運日誌/報表</a></li>
         </ul>
         <div class="sidebar-footer">
             <button id="exportBtn" class="btn-export">📄 匯出報告</button>
@@ -285,6 +297,58 @@
         <section id="checklist" class="section">
             <div class="section-header"><h1>開店籌備清單</h1><p class="section-desc">從籌備到開幕的完整待辦事項</p></div>
             <div class="checklist-timeline" id="checklistTimeline"></div>
+        </section>
+        <!-- Section: Guide -->
+        <section id="guide" class="section">
+            <div class="section-header"><h1>📖 開店指南 (避坑紀錄)</h1><p class="section-desc">記錄注意事項、合約細節與營業心得</p></div>
+            <div class="card">
+                <h3>📝 共用筆記本 (即時同步)</h3>
+                <textarea id="guideNotes" class="input-field" style="width:100%; height:300px; resize:vertical; line-height:1.6;" placeholder="在這裡記錄任何開店注意事項、廠商報價細節、房東聯絡事項..."></textarea>
+            </div>
+            <div class="card">
+                <h3>⚠️ 常見避坑指南</h3>
+                <ul style="color:var(--text-muted); line-height:1.8; margin-left:20px;">
+                    <li><strong>租約：</strong>確認是否有「特種營業」限制、能否設立行號、水電容量是否足夠(至少需要單相220V/100A)。</li>
+                    <li><strong>裝潢：</strong>一定要留「截油槽」，否則水管很容易堵塞。排水管建議配明管方便維修。</li>
+                    <li><strong>人事：</strong>不要一開始就請太多正職，前期先用兼職彈性排班，等營業額穩定再轉正。</li>
+                    <li><strong>合夥：</strong>出資比例不等於決策權，建議要有一人有最終決定權，並約定退股機制。</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Section: Logs -->
+        <section id="logs" class="section">
+            <div class="section-header"><h1>📒 營運日誌/報表</h1><p class="section-desc">追蹤實際營業數據，並與預估值比較</p></div>
+            <div class="card">
+                <h3>新增當日營業數據</h3>
+                <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:15px;">
+                    <div style="flex:1;"><label>日期</label><input type="date" id="logDate" class="input-field"></div>
+                    <div style="flex:1;"><label>營業額 ($)</label><input type="number" id="logRevenue" class="input-field" placeholder="0"></div>
+                    <div style="flex:1;"><label>客單數</label><input type="number" id="logOrders" class="input-field" placeholder="0"></div>
+                    <div style="flex:1;"><label>杯數</label><input type="number" id="logCups" class="input-field" placeholder="0"></div>
+                </div>
+                <button id="btnAddLog" style="width:100%; padding:10px; background:var(--green); color:#fff; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">➕ 記錄營業額</button>
+            </div>
+            <div class="card">
+                <h3>歷史紀錄</h3>
+                <div style="overflow-x:auto;">
+                    <table style="width:100%; border-collapse:collapse; text-align:left; font-size:14px;" id="logsTable">
+                        <thead>
+                            <tr style="border-bottom:1px solid rgba(255,255,255,0.1);">
+                                <th style="padding:10px;">日期</th>
+                                <th style="padding:10px;">營業額</th>
+                                <th style="padding:10px;">客單數</th>
+                                <th style="padding:10px;">總杯數</th>
+                                <th style="padding:10px;">客單價</th>
+                                <th style="padding:10px;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logsTableBody">
+                            <!-- Logs will be inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </section>
 
     </main>
